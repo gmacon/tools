@@ -104,19 +104,17 @@ def build(self, run_epubcheck: bool, check_only: bool, build_kobo: bool, build_k
 
 	run_ace = False
 	if run_epubcheck:
-		java_present = True
-		if not shutil.which("java"):
-			java_present = False
+		which_java = shutil.which("java")
 		# Mac Big Sur+ has a "dummy" /usr/bin/java; test -version to see if java is really installed
-		elif os.uname()[0] == "Darwin":
+		if which_java and os.uname()[0] == "Darwin":
 			try:
-				java_check = subprocess.run(["java", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
+				java_check = subprocess.run([which_java, "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
 				if java_check.stderr.decode().find("Unable to locate") >= 0:
-					java_present = False
+					which_java = None
 			except Exception:
-				java_present = False
+				which_java = None
 
-		if not java_present:
+		if not which_java:
 			raise se.MissingDependencyException("Couldn’t locate [bash]java[/]. Is it installed?")
 
 		if shutil.which("ace"):
@@ -1160,7 +1158,7 @@ def build(self, run_epubcheck: bool, check_only: bool, build_kobo: bool, build_k
 				# We have to use a temp file to hold stdout, because if the output is too large for the output buffer in subprocess.run() (and thus popen()) it will be truncated
 				with tempfile.TemporaryFile() as stdout:
 					# We can't check the return code, because if only warnings are returned then epubcheck will return 0 (success)
-					subprocess.run(["java", "-jar", str(jar_path), "--quiet", "--out", "-", "--mode", "exp", str(work_compatible_epub_dir)], stdout=stdout, stderr=subprocess.DEVNULL, check=False)
+					subprocess.run([which_java, "-jar", str(jar_path), "--quiet", "--out", "-", "--mode", "exp", str(work_compatible_epub_dir)], stdout=stdout, stderr=subprocess.DEVNULL, check=False)
 
 					stdout.seek(0)
 					output = stdout.read().decode().strip()
@@ -1193,7 +1191,7 @@ def build(self, run_epubcheck: bool, check_only: bool, build_kobo: bool, build_k
 			with importlib.resources.as_file(importlib.resources.files("se.data.vnu").joinpath("vnu.jar")) as jar_path:
 				# We have to use a temp file to hold stdout, because if the output is too large for the output buffer in subprocess.run() (and thus popen()) it will be truncated
 				with tempfile.TemporaryFile() as stdout:
-					subprocess.run(["java", "-jar", str(jar_path), "--format", "xml", str(self.epub_root_path / "epub" / "text")], stdout=stdout, stderr=stdout, check=False)
+					subprocess.run([which_java, "-jar", str(jar_path), "--format", "xml", str(self.epub_root_path / "epub" / "text")], stdout=stdout, stderr=stdout, check=False)
 
 					stdout.seek(0)
 					vnu_dom = se.easy_xml.EasyXmlTree(stdout.read().decode().strip())
